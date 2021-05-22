@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns = "http://www.springframework.org/schema/beans" 
+   xmlns:batch = "http://www.springframework.org/schema/batch" 
+    xmlns:task="http://www.springframework.org/schema/task"
+   xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance" 
+   xsi:schemaLocation = "http://www.springframework.org/schema/batch 
+
+   http://www.springframework.org/schema/batch/spring-batch-2.2.xsd 
+   http://www.springframework.org/schema/beans
+   http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+   http://www.springframework.org/schema/task
+   http://www.springframework.org/schema/task/spring-task-3.2.xsd">
+   
+   
+   <batch:job id="readDb"> 
+   	 <batch:step id="step1">
+   	   <batch:tasklet>
+   	     <batch:chunk reader="itemreader" writer="itemWriter" commit-interval="1" />
+   	   </batch:tasklet>
+   	 </batch:step>
+   	 <batch:listeners>
+          <batch:listener ref="listener" />
+     </batch:listeners>
+   </batch:job>
+   
+   
+   <bean id="itemreader" class="org.springframework.batch.item.database.JdbcPagingItemReader">
+ 
+         <property name="dataSource" ref="dataSource" /> 
+        <property name="rowMapper">
+        	<bean class="dummy.CoffeeMapper"></bean>
+        </property>
+        <property name="queryProvider">
+         <bean class="org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean">
+         	   <property name="dataSource" ref="dataSource" />
+         	   <property name="sortKeys">
+			        <map>
+			         	<entry key="COFFEE_ID" value="ASCENDING"/>
+			        </map>
+		        </property>
+        		<property name="selectClause" value="SELECT * " />
+				<property name="fromClause" value="FROM COFFEE " />
+				<property name="whereClause" value="WHERE COFFEE_ID &lt;= 1000000" /> 
+         </bean>
+        </property>
+    </bean>
+    
+ 
+   <task:scheduled-tasks>
+  	<task:scheduled ref="runScheduler" method="perform" cron="*/5 * * * * *" />
+   </task:scheduled-tasks>
+    
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+	    <property name="driverClassName" value="${spring.datasource.driver-class-name}" />
+	    <property name="url" value="${spring.datasource.url}" />
+	    <property name="username" value="${spring.datasource.username}" />
+	    <property name="password" value="${spring.datasource.password}" />
+	</bean>
+	<bean id="runScheduler" class="dummy.ScheduledDb2FilexmlConfigApplication" />
+   <bean id="item" class="dummy.Coffee" scope="prototype"/>
+   <bean id="listener" class="dummy.JobCompletionListener"/>
+   <bean id="mapper" class="dummy.CoffeeMapper"/>
+   
+   <bean id="itemWriter" class="org.springframework.batch.item.xml.StaxEventItemWriter">
+        <property name="resource" value="file:coffee.xml" /> 
+    <property name="encoding" value="ISO-8859-1" />
+    <property name="version" value="1.0" />
+    <property name="marshaller" ref="coffeeunmarshaller" />
+    <property name="rootTagName" value="coffees" />
+    </bean> 
+    
+    <bean id="coffeeunmarshaller" class="org.springframework.oxm.jaxb.Jaxb2Marshaller">
+        <property name="classesToBeBound">
+            <list>
+                <value>dummy.Coffee</value>
+            </list>
+        </property>
+    </bean>
+   
+</beans>
